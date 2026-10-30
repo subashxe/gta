@@ -1068,7 +1068,7 @@ function wanted(o) {
 function isVis(o) { return !o.vis || o.vis(); }
 function rectDist(px, py, o) { const dx = Math.max(o.x - px, 0, px - (o.x + o.w)), dy = Math.max(o.y - py, 0, py - (o.y + o.h)); return Math.hypot(dx, dy); }
 function nearest() {
-  let best = null, bd = 1.0;
+  let best = null, bd = REACH;
   for (const o of OBJ) { if (o.f !== S.floor || !o.act || !isVis(o)) continue; const d = rectDist(S.p.x, S.p.y, o); if (d < bd) { bd = d; best = o; } }
   return best;
 }
@@ -1079,7 +1079,27 @@ function collides(x, y) {
   for (const o of OBJ) if (o.f === f && o.solid && x + PR > o.x && x - PR < o.x + o.w && y + PR > o.y && y - PR < o.y + o.h) return true;
   return false;
 }
-function move(dx, dy) { let m = false; if (dx && !collides(S.p.x + dx, S.p.y)) { S.p.x += dx; m = true; } if (dy && !collides(S.p.x, S.p.y + dy)) { S.p.y += dy; m = true; } return m; }
+const REACH = 1.25; // how far away something can be and still be examined
+function move(dx, dy) {
+  let m = false;
+  if (dx) { if (!collides(S.p.x + dx, S.p.y)) { S.p.x += dx; m = true; } else if (Math.abs(dy) < Math.abs(dx) * 0.6) m = nudge('y', dx) || m; }
+  if (dy) { if (!collides(S.p.x, S.p.y + dy)) { S.p.y += dy; m = true; } else if (Math.abs(dx) < Math.abs(dy) * 0.6) m = nudge('x', dy) || m; }
+  return m;
+}
+// when walking into a wall beside a doorway, slide sideways into the opening instead of stopping dead
+function nudge(axis, d) {
+  const c = axis === 'y' ? S.p.y : S.p.x, step = Math.abs(d);
+  const free = (v) => !(axis === 'y' ? collides(S.p.x + d, v) : collides(v, S.p.y + d));
+  for (let k = 1; k <= 18; k++) for (const sgn of [1, -1]) {
+    const off = sgn * k * 0.05;
+    if (!free(c + off)) continue;
+    const delta = clamp(off, -step, step);
+    if (axis === 'y' ? collides(S.p.x, S.p.y + delta) : collides(S.p.x + delta, S.p.y)) continue;
+    if (axis === 'y') S.p.y += delta; else S.p.x += delta;
+    return true;
+  }
+  return false;
+}
 function blockedTile(f, x, y) { if (solidTile(f, x, y)) return true; const cx = x + 0.5, cy = y + 0.5, r = 0.3; for (const o of OBJ) if (o.f === f && o.solid && cx + r > o.x && cx - r < o.x + o.w && cy + r > o.y && cy - r < o.y + o.h) return true; return false; }
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
 function findPath(goal) {
@@ -1107,19 +1127,39 @@ const keys = {};
 let touchMode = false;
 function setTouch(on) { touchMode = on; document.body.classList.toggle('touch', on); }
 try { if (matchMedia('(pointer: coarse)').matches) setTouch(true); } catch (e) {}
-// phone controller: an analog stick that feeds movement like the keyboard
+// phone controller: a floating stick. Touch anywhere in the lower-left of the screen and drag;
+// the stick appears under the thumb and follows it. A quick tap there still works as tap-to-move.
 S.joy = { x: 0, y: 0 };
-const padStick = $('#stick'), knob = $('#knob'); let joyId = null;
+const zone = $('#zone'), padStick = $('#stick'), knob = $('#knob');
+let joyId = null, joyO = null, joyT0 = 0, joyMoved = false;
+const JOY_MAX = 48;
+function placeStick(x, y) { padStick.style.left = (x - 64) + 'px'; padStick.style.top = (y - 64) + 'px'; padStick.style.bottom = 'auto'; }
 function joyMove(e) {
-  const r = padStick.getBoundingClientRect(), max = r.width * 0.36;
-  let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
-  const d = Math.hypot(dx, dy); if (d > max) { dx *= max / d; dy *= max / d; }
-  knob.style.transform = `translate(${dx}px,${dy}px)`; S.joy.x = dx / max; S.joy.y = dy / max;
+  let dx = e.clientX - joyO.x, dy = e.clientY - joyO.y, d = Math.hypot(dx, dy);
+  if (d > 8) joyMoved = true;
+  if (d > JOY_MAX) { // drag the base along so the thumb never runs off the stick
+    const over = d - JOY_MAX; joyO.x += (dx / d) * over; joyO.y += (dy / d) * over; placeStick(joyO.x, joyO.y);
+    dx = e.clientX - joyO.x; dy = e.clientY - joyO.y; d = JOY_MAX;
+  }
+  knob.style.transform = `translate(${dx}px,${dy}px)`;
+  const mag = Math.min(1, d / (JOY_MAX * 0.7)); // full speed well before the edge
+  S.joy.x = d ? (dx / d) * mag : 0; S.joy.y = d ? (dy / d) * mag : 0;
 }
-function joyEnd(e) { if (e.pointerId !== joyId) return; joyId = null; S.joy.x = S.joy.y = 0; knob.style.transform = ''; padStick.classList.remove('active'); }
-padStick.addEventListener('pointerdown', (e) => { e.preventDefault(); AU.init(); joyId = e.pointerId; padStick.setPointerCapture(e.pointerId); padStick.classList.add('active'); S.path = null; S.pendingObj = null; joyMove(e); });
-padStick.addEventListener('pointermove', (e) => { if (e.pointerId === joyId) joyMove(e); });
-padStick.addEventListener('pointerup', joyEnd); padStick.addEventListener('pointercancel', joyEnd);
+function joyEnd(e) {
+  if (e.pointerId !== joyId) return;
+  joyId = null; S.joy.x = S.joy.y = 0; knob.style.transform = '';
+  padStick.classList.remove('active'); padStick.style.left = padStick.style.top = padStick.style.bottom = '';
+  if (!joyMoved && performance.now() - joyT0 < 300 && e.type === 'pointerup') handleTap(e.clientX, e.clientY);
+}
+zone.addEventListener('pointerdown', (e) => {
+  e.preventDefault(); AU.init();
+  if (!S.started || S.busy || S.ended || joyId !== null) return;
+  joyId = e.pointerId; zone.setPointerCapture(e.pointerId);
+  joyO = { x: e.clientX, y: e.clientY }; joyT0 = performance.now(); joyMoved = false;
+  placeStick(joyO.x, joyO.y); padStick.classList.add('active'); S.path = null; S.pendingObj = null;
+});
+zone.addEventListener('pointermove', (e) => { if (e.pointerId === joyId) joyMove(e); });
+zone.addEventListener('pointerup', joyEnd); zone.addEventListener('pointercancel', joyEnd);
 addEventListener('keydown', (e) => {
   if (!S.started) return;
   const k = e.key.toLowerCase();
@@ -1134,19 +1174,22 @@ addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
 cv.addEventListener('pointerdown', (e) => {
   if (!S.started || S.busy || S.ended) return;
   if (e.pointerType !== 'mouse' && !touchMode) setTouch(true);
-  AU.init();
-  const wx = (e.clientX + cam.x) / TS, wy = (e.clientY + cam.y) / TS;
+  AU.init(); handleTap(e.clientX, e.clientY);
+});
+function handleTap(cx, cy) {
+  if (!S.started || S.busy || S.ended) return;
+  const wx = (cx + cam.x) / TS, wy = (cy + cam.y) / TS;
   let hit = null;
   for (const o of OBJ) { if (o.f !== S.floor || !o.act || !isVis(o)) continue; if (wx > o.x - 0.25 && wx < o.x + o.w + 0.25 && wy > o.y - 0.25 && wy < o.y + o.h + 0.25) { hit = o; break; } }
   if (hit) {
-    if (rectDist(S.p.x, S.p.y, hit) < 1.0) { interact(hit); return; }
+    if (rectDist(S.p.x, S.p.y, hit) < REACH) { interact(hit); return; }
     S.path = findPath((x, y) => rectDist(x + 0.5, y + 0.5, hit) < 0.9); S.pendingObj = S.path ? hit : null; return;
   }
   const gx = Math.floor(wx), gy = Math.floor(wy);
   S.pendingObj = null;
   S.path = blockedTile(S.floor, gx, gy) ? null : findPath((x, y) => x === gx && y === gy);
   if (S.path) S.path.push({ x: clamp(wx, gx + 0.3, gx + 0.7), y: clamp(wy, gy + 0.3, gy + 0.7) });
-});
+}
 $('#act').addEventListener('pointerdown', (e) => { e.preventDefault(); AU.init(); if (S.busy) return; const n = nearest(); if (n) interact(n); });
 $('#act').addEventListener('click', (e) => { if (e.pointerType) return; if (!S.busy) { const n = nearest(); if (n) interact(n); } });
 $('#mute').addEventListener('click', () => { $('#mute').textContent = AU.toggle() ? '♪' : '–'; });
@@ -1170,7 +1213,7 @@ function update(dt, t) {
   if (keys.a || keys.arrowleft) mx -= 1; if (keys.d || keys.arrowright) mx += 1;
   if (keys.w || keys.arrowup) my -= 1; if (keys.s || keys.arrowdown) my += 1;
   const jm = Math.hypot(S.joy.x, S.joy.y);
-  if (!mx && !my && jm > 0.18) { mx = S.joy.x; my = S.joy.y; }
+  if (!mx && !my && jm > 0.12) { mx = S.joy.x; my = S.joy.y; }
   const speed = 2.7;
   let moving = false;
   if (mx || my) {
@@ -1179,9 +1222,9 @@ function update(dt, t) {
     const k = Math.min(1, l) / l;
     moving = move(mx * k * speed * dt, my * k * speed * dt);
   } else if (S.path && S.path.length) {
-    if (S.pendingObj && rectDist(S.p.x, S.p.y, S.pendingObj) < 0.9) { interact(S.pendingObj); return; }
+    if (S.pendingObj && rectDist(S.p.x, S.p.y, S.pendingObj) < REACH - 0.1) { interact(S.pendingObj); return; }
     const wp = S.path[0], dx = wp.x - S.p.x, dy = wp.y - S.p.y, d = Math.hypot(dx, dy);
-    if (d < 0.08) { S.path.shift(); if (!S.path.length && S.pendingObj) { const o = S.pendingObj; if (rectDist(S.p.x, S.p.y, o) < 1.0) interact(o); S.pendingObj = null; } }
+    if (d < 0.08) { S.path.shift(); if (!S.path.length && S.pendingObj) { const o = S.pendingObj; if (rectDist(S.p.x, S.p.y, o) < REACH) interact(o); S.pendingObj = null; } }
     else {
       S.p.dir = Math.atan2(dy, dx); const st = Math.min(d, speed * dt);
       moving = move((dx / d) * st, (dy / d) * st);

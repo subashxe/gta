@@ -142,12 +142,14 @@ button{font:inherit;color:inherit;cursor:pointer}
 /* phone controller */
 #pad{display:none}
 body.touch.playing #pad{display:block}
-#stick{position:fixed;left:calc(22px + env(safe-area-inset-left,0px));bottom:calc(26px + env(safe-area-inset-bottom,0px));
+#zone{position:fixed;left:0;bottom:0;width:50%;height:58%;touch-action:none}
+#stick{position:fixed;pointer-events:none;left:calc(22px + env(safe-area-inset-left,0px));bottom:calc(26px + env(safe-area-inset-bottom,0px));
   width:128px;height:128px;border-radius:50%;touch-action:none;
   background:radial-gradient(circle,rgba(232,220,196,.03) 40%,rgba(232,220,196,.09));border:1px solid rgba(232,220,196,.2)}
 #stick::before{content:"";position:absolute;inset:22px;border-radius:50%;border:1px dashed rgba(232,220,196,.12)}
 #knob{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px;border-radius:50%;pointer-events:none;
   background:radial-gradient(circle at 40% 35%,#5c4632,#24180f);border:1px solid rgba(227,154,74,.5);box-shadow:0 0 16px rgba(227,154,74,.12)}
+#stick.active{border-color:rgba(227,154,74,.35)}
 #stick.active #knob{box-shadow:0 0 26px rgba(227,154,74,.45)}
 body.touch #act{display:none;left:auto;right:calc(26px + env(safe-area-inset-right,0px));bottom:calc(46px + env(safe-area-inset-bottom,0px));
   transform:none;width:84px;height:84px;padding:0;border-radius:50%;opacity:.4;font-size:16px;letter-spacing:.12em;text-transform:uppercase;touch-action:none;transition:opacity .2s,box-shadow .2s}
@@ -162,7 +164,7 @@ body.touch #toast{bottom:calc(178px + env(safe-area-inset-bottom,0px))}
 <canvas id="game"></canvas>
 <div id="hud"><div id="chap"></div><div id="obj"></div><div id="room"></div></div>
 <button id="mute" aria-label="Toggle sound">♪</button>
-<div id="pad"><div id="stick" aria-label="Movement stick"><div id="knob"></div></div></div>
+<div id="pad"><div id="zone"></div><div id="stick" aria-label="Movement stick"><div id="knob"></div></div></div>
 <div id="toast"></div>
 <button id="act">Look</button>
 <div id="card"><div class="n"></div><div class="t"></div></div>
@@ -175,7 +177,7 @@ body.touch #toast{bottom:calc(178px + env(safe-area-inset-bottom,0px))}
     <span class="dev">ख्याः</span>
     <p class="tag">Some things have lived with your family longer than you have.</p>
     <button class="btn" id="start">Enter the house</button>
-    <p class="hint">Headphones recommended<br>Keyboard: WASD or arrows to move · E or Space to examine<br>Phone: drag the stick to walk · press Look to examine</p>
+    <p class="hint">Headphones recommended<br>Keyboard: WASD or arrows to move · E or Space to examine<br>Phone: drag anywhere on the lower left to walk · press Look to examine</p>
   </div>
 </div>
 <div id="ending"><canvas id="ecv"></canvas><div class="etext"></div><div class="ebtns"></div></div>

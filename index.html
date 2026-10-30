@@ -139,6 +139,22 @@ button{font:inherit;color:inherit;cursor:pointer}
 
 #fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .6s;z-index:4}
 #fade.on{opacity:1}
+/* phone controller */
+#pad{display:none}
+body.touch.playing #pad{display:block}
+#stick{position:fixed;left:calc(22px + env(safe-area-inset-left,0px));bottom:calc(26px + env(safe-area-inset-bottom,0px));
+  width:128px;height:128px;border-radius:50%;touch-action:none;
+  background:radial-gradient(circle,rgba(232,220,196,.03) 40%,rgba(232,220,196,.09));border:1px solid rgba(232,220,196,.2)}
+#stick::before{content:"";position:absolute;inset:22px;border-radius:50%;border:1px dashed rgba(232,220,196,.12)}
+#knob{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle at 40% 35%,#5c4632,#24180f);border:1px solid rgba(227,154,74,.5);box-shadow:0 0 16px rgba(227,154,74,.12)}
+#stick.active #knob{box-shadow:0 0 26px rgba(227,154,74,.45)}
+body.touch #act{display:none;left:auto;right:calc(26px + env(safe-area-inset-right,0px));bottom:calc(46px + env(safe-area-inset-bottom,0px));
+  transform:none;width:84px;height:84px;padding:0;border-radius:50%;opacity:.4;font-size:16px;letter-spacing:.12em;text-transform:uppercase;touch-action:none;transition:opacity .2s,box-shadow .2s}
+body.touch.playing #act{display:block}
+body.touch #act.ready{opacity:1;box-shadow:0 0 24px rgba(227,154,74,.35)}
+body.touch #act:active{transform:scale(.94)}
+body.touch #toast{bottom:calc(178px + env(safe-area-inset-bottom,0px))}
 @media (max-width:600px){ #toast{font-size:18px} #doc .note{font-size:17px} #obj{font-size:15px} }
 </style>
 </head>
@@ -146,8 +162,9 @@ button{font:inherit;color:inherit;cursor:pointer}
 <canvas id="game"></canvas>
 <div id="hud"><div id="chap"></div><div id="obj"></div><div id="room"></div></div>
 <button id="mute" aria-label="Toggle sound">♪</button>
+<div id="pad"><div id="stick" aria-label="Movement stick"><div id="knob"></div></div></div>
 <div id="toast"></div>
-<button id="act">Examine</button>
+<button id="act">Look</button>
 <div id="card"><div class="n"></div><div class="t"></div></div>
 <div id="doc"><div class="wrap"><div class="sheet"></div><div class="foot"><p class="note"></p><button class="btn next">Continue</button></div></div></div>
 <div id="choice"><div><p class="q"></p><div class="opts"></div></div></div>
@@ -158,7 +175,7 @@ button{font:inherit;color:inherit;cursor:pointer}
     <span class="dev">ख्याः</span>
     <p class="tag">Some things have lived with your family longer than you have.</p>
     <button class="btn" id="start">Enter the house</button>
-    <p class="hint">Headphones recommended<br>WASD / arrows or tap to move · E, Space or tap to examine</p>
+    <p class="hint">Headphones recommended<br>Keyboard: WASD or arrows to move · E or Space to examine<br>Phone: drag the stick to walk · press Look to examine</p>
   </div>
 </div>
 <div id="ending"><canvas id="ecv"></canvas><div class="etext"></div><div class="ebtns"></div></div>

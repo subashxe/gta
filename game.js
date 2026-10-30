@@ -767,7 +767,7 @@ const ENDINGS = {
   ] },
 };
 function ending(n) {
-  S.ended = true; S.busy = true;
+  S.ended = true; S.busy = true; document.body.classList.remove('playing');
   fadeEl.classList.add('on');
   setTimeout(() => {
     endEl.classList.add('on'); fadeEl.classList.remove('on');
@@ -1013,7 +1013,7 @@ function render(t) {
   drawWindows(t);
   const zk = (o) => o.y + o.h + (o.kind === 'lal' ? 50 : 0);
   const objs = OBJ.filter((o) => o.f === S.floor).sort((a, b) => zk(a) - zk(b));
-  for (const o of objs) drawObj(o, t);
+  for (const o of objs) if (o.kind === 'door' || isVis(o)) drawObj(o, t);
   drawPlayer(t);
   drawFigure(t);
   const L = lights(t);
@@ -1105,20 +1105,35 @@ function interact(o) { S.seen[o.id] = true; S.path = null; S.pendingObj = null; 
 
 const keys = {};
 let touchMode = false;
+function setTouch(on) { touchMode = on; document.body.classList.toggle('touch', on); }
+try { if (matchMedia('(pointer: coarse)').matches) setTouch(true); } catch (e) {}
+// phone controller: an analog stick that feeds movement like the keyboard
+S.joy = { x: 0, y: 0 };
+const padStick = $('#stick'), knob = $('#knob'); let joyId = null;
+function joyMove(e) {
+  const r = padStick.getBoundingClientRect(), max = r.width * 0.36;
+  let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+  const d = Math.hypot(dx, dy); if (d > max) { dx *= max / d; dy *= max / d; }
+  knob.style.transform = `translate(${dx}px,${dy}px)`; S.joy.x = dx / max; S.joy.y = dy / max;
+}
+function joyEnd(e) { if (e.pointerId !== joyId) return; joyId = null; S.joy.x = S.joy.y = 0; knob.style.transform = ''; padStick.classList.remove('active'); }
+padStick.addEventListener('pointerdown', (e) => { e.preventDefault(); AU.init(); joyId = e.pointerId; padStick.setPointerCapture(e.pointerId); padStick.classList.add('active'); S.path = null; S.pendingObj = null; joyMove(e); });
+padStick.addEventListener('pointermove', (e) => { if (e.pointerId === joyId) joyMove(e); });
+padStick.addEventListener('pointerup', joyEnd); padStick.addEventListener('pointercancel', joyEnd);
 addEventListener('keydown', (e) => {
   if (!S.started) return;
   const k = e.key.toLowerCase();
   if (docEl.classList.contains('on')) { if (['e', ' ', 'enter', 'escape'].includes(k)) { e.preventDefault(); AU.paper(); showNextDoc(); } return; }
   if (choiceEl.classList.contains('on')) { if (k === 'escape') { choiceEl.classList.remove('on'); S.busy = false; } return; }
   if (S.ended) return;
-  keys[k] = true; touchMode = false;
+  keys[k] = true; if (touchMode) setTouch(false);
   if (['e', ' ', 'enter'].includes(k)) { e.preventDefault(); if (!S.busy) { const n = nearest(); if (n) interact(n); } }
   if (k === 'm') $('#mute').textContent = AU.toggle() ? '♪' : '–';
 });
 addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
 cv.addEventListener('pointerdown', (e) => {
   if (!S.started || S.busy || S.ended) return;
-  if (e.pointerType !== 'mouse') touchMode = true;
+  if (e.pointerType !== 'mouse' && !touchMode) setTouch(true);
   AU.init();
   const wx = (e.clientX + cam.x) / TS, wy = (e.clientY + cam.y) / TS;
   let hit = null;
@@ -1132,7 +1147,8 @@ cv.addEventListener('pointerdown', (e) => {
   S.path = blockedTile(S.floor, gx, gy) ? null : findPath((x, y) => x === gx && y === gy);
   if (S.path) S.path.push({ x: clamp(wx, gx + 0.3, gx + 0.7), y: clamp(wy, gy + 0.3, gy + 0.7) });
 });
-$('#act').addEventListener('click', () => { if (!S.busy) { const n = nearest(); if (n) interact(n); } });
+$('#act').addEventListener('pointerdown', (e) => { e.preventDefault(); AU.init(); if (S.busy) return; const n = nearest(); if (n) interact(n); });
+$('#act').addEventListener('click', (e) => { if (e.pointerType) return; if (!S.busy) { const n = nearest(); if (n) interact(n); } });
 $('#mute').addEventListener('click', () => { $('#mute').textContent = AU.toggle() ? '♪' : '–'; });
 
 /* ============================== UPDATE LOOP ============================== */
@@ -1153,12 +1169,15 @@ function update(dt, t) {
   let mx = 0, my = 0;
   if (keys.a || keys.arrowleft) mx -= 1; if (keys.d || keys.arrowright) mx += 1;
   if (keys.w || keys.arrowup) my -= 1; if (keys.s || keys.arrowdown) my += 1;
+  const jm = Math.hypot(S.joy.x, S.joy.y);
+  if (!mx && !my && jm > 0.18) { mx = S.joy.x; my = S.joy.y; }
   const speed = 2.7;
   let moving = false;
   if (mx || my) {
     S.path = null; S.pendingObj = null;
     const l = Math.hypot(mx, my); S.p.dir = Math.atan2(my, mx);
-    moving = move((mx / l) * speed * dt, (my / l) * speed * dt);
+    const k = Math.min(1, l) / l;
+    moving = move(mx * k * speed * dt, my * k * speed * dt);
   } else if (S.path && S.path.length) {
     if (S.pendingObj && rectDist(S.p.x, S.p.y, S.pendingObj) < 0.9) { interact(S.pendingObj); return; }
     const wp = S.path[0], dx = wp.x - S.p.x, dy = wp.y - S.p.y, d = Math.hypot(dx, dy);
@@ -1173,7 +1192,7 @@ function update(dt, t) {
   const r = roomAt(S.floor, Math.floor(S.p.x), Math.floor(S.p.y)); const rn = r ? r.n : lastRoom;
   if (rn !== lastRoom) { lastRoom = rn; updateHUD(); }
   const n = nearest(); const act = $('#act');
-  if (touchMode && n) { act.textContent = n.name; act.classList.add('on'); } else act.classList.remove('on');
+  act.classList.toggle('ready', !!n);
 }
 let last = performance.now();
 function loop(now) {
@@ -1213,7 +1232,7 @@ $('#start').addEventListener('click', () => {
   AU.init();
   titleOn = false; $('#title').classList.add('off');
   setTimeout(() => { $('#title').style.display = 'none'; }, 1700);
-  S.started = true;
+  S.started = true; document.body.classList.add('playing');
   const q = new URLSearchParams(location.search), jump = parseInt(q.get('chapter'), 10);
   if (jump >= 1 && jump <= 7) { debugJump(jump); showCard(jump); return; }
   intro();

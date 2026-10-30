@@ -17,6 +17,15 @@ Headphones are recommended, because the rain, creaks and footsteps are part of t
 | Examine | E, Space or Enter      | Tap the object, or the Examine button |
 | Mute    | M                      | ♪ button                            |
 
+## Three ways to play
+
+- `index.html`: the original top-down game with lantern light
+- `3d.html`: first person, through Ankit's eyes. Mouse or ← → to look (click to lock the mouse); on a phone, drag the right half of the screen to look
+- `diorama.html`: the house as a cut-away dollhouse seen from above
+
+All three share the same story, documents and endings (`core.js`). The 3D views are drawn
+with a small WebGL renderer written for this game (`game3d.js`), so they need no libraries.
+
 ## Structure
 
 - Seven chapters: The House, Nisha's Room, The Newspaper, The Upstairs Room, The Family,

@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Khyaa Diorama</title>
+<meta name="description" content="A cut-away dollhouse 3D version of a psychological folklore horror game set in an old Newari family house in Kathmandu.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Old+Standard+TT:wght@400;700&family=Special+Elite&family=Noto+Serif+Devanagari:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#e8dcc4; --dim:#9c8e78; --ember:#e39a4a; --blood:#7a2a1c; --night:#07070a;
+  --paper:#efe6cf; --paper-ink:#2a2018;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--night);color:var(--ink);overflow:hidden;
+  font-family:'Cormorant Garamond',Georgia,serif;-webkit-user-select:none;user-select:none;touch-action:none}
+button{font:inherit;color:inherit;cursor:pointer}
+#game{position:fixed;inset:0;display:block}
+
+/* HUD */
+#hud{position:fixed;top:max(14px,env(safe-area-inset-top));left:16px;right:70px;pointer-events:none;opacity:0;transition:opacity 1.2s}
+#hud.on{opacity:1}
+#chap{font-size:13px;letter-spacing:.32em;text-transform:uppercase;color:var(--ember);opacity:.85}
+#obj{margin-top:4px;font-size:17px;font-style:italic;color:var(--ink);opacity:.78;max-width:440px;line-height:1.25}
+#room{margin-top:8px;font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:var(--dim)}
+#mute{position:fixed;top:max(10px,env(safe-area-inset-top));right:14px;width:40px;height:40px;border-radius:50%;
+  background:rgba(20,16,12,.55);border:1px solid rgba(232,220,196,.18);font-size:16px;display:none}
+#mute.on{display:block}
+
+/* toast narration */
+#toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%);
+  width:min(620px,calc(100% - 32px));text-align:center;font-size:21px;font-style:italic;line-height:1.35;
+  color:var(--ink);text-shadow:0 0 18px #000,0 0 6px #000;opacity:0;transition:opacity .45s;pointer-events:none}
+#toast.on{opacity:1}
+
+#act{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);
+  padding:11px 26px;border-radius:30px;background:rgba(30,22,14,.78);border:1px solid rgba(227,154,74,.55);
+  color:var(--ember);font-size:17px;letter-spacing:.06em;display:none;backdrop-filter:blur(3px)}
+#act.on{display:block}
+
+/* chapter card */
+#card{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  pointer-events:none;opacity:0;transition:opacity 1.4s;text-align:center;padding:16px}
+#card.on{opacity:1}
+#card .n{font-size:14px;letter-spacing:.5em;color:var(--ember);text-transform:uppercase}
+#card .t{margin-top:10px;font-size:clamp(34px,7vw,64px);font-weight:400;letter-spacing:.06em;text-shadow:0 0 30px #000}
+
+/* document viewer */
+#doc{position:fixed;inset:0;background:rgba(3,2,2,.82);display:none;align-items:center;justify-content:center;padding:16px;
+  backdrop-filter:blur(2px)}
+#doc.on{display:flex;animation:fin .35s ease}
+@keyframes fin{from{opacity:0}to{opacity:1}}
+#doc .wrap{width:min(560px,100%);max-height:calc(100% - 8px);display:flex;flex-direction:column;gap:14px}
+#doc .sheet{overflow:auto;max-height:72vh;scrollbar-width:thin;scrollbar-color:#5a4a38 transparent}
+#doc .foot{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center}
+#doc .note{font-size:19px;font-style:italic;line-height:1.4;color:var(--ink);min-height:0}
+#doc .note:empty{display:none}
+.btn{padding:9px 28px;border-radius:30px;background:transparent;border:1px solid rgba(232,220,196,.35);
+  font-size:16px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink);transition:border-color .2s,color .2s}
+.btn:hover,.btn:focus-visible{border-color:var(--ember);color:var(--ember);outline:none}
+
+.d canvas{display:block;width:100%;height:auto;margin:0 auto;box-shadow:0 10px 40px rgba(0,0,0,.7)}
+.d.card{padding:30px 10px;text-align:center;font-size:23px;line-height:1.5;font-style:italic}
+.d.card p+p{margin-top:12px}
+.d.photo .back,.paper{background:var(--paper);color:var(--paper-ink)}
+.d.photo .back{margin-top:12px;padding:14px 18px;box-shadow:0 10px 30px rgba(0,0,0,.6);transform:rotate(-.6deg)}
+.lbl{display:block;font-family:'Special Elite',monospace;font-size:11px;letter-spacing:.2em;text-transform:uppercase;opacity:.55;margin-bottom:4px}
+.hw{font-family:'Caveat',cursive;font-size:27px;line-height:1.2}
+
+.d.news{background:#e7e0cc;color:#1d1b17;padding:18px 18px 22px;font-family:'Old Standard TT',serif;
+  box-shadow:0 10px 40px rgba(0,0,0,.7);background-image:radial-gradient(ellipse at 30% 20%,rgba(255,255,255,.3),transparent 60%),radial-gradient(ellipse at 80% 90%,rgba(120,90,40,.22),transparent 55%)}
+.news .mast{display:flex;justify-content:space-between;border-bottom:3px double #1d1b17;padding-bottom:6px;
+  font-size:11px;letter-spacing:.2em;text-transform:uppercase;font-family:'Special Elite',monospace}
+.news h2{font-size:clamp(20px,5vw,27px);line-height:1.1;margin:12px 0 10px;font-weight:700;letter-spacing:.01em}
+.news p{font-size:16px;line-height:1.45;text-align:justify;hyphens:auto}
+.news p::first-letter{font-size:2.2em;float:left;line-height:.9;margin:3px 6px 0 0;font-weight:700}
+.news figure{margin:0 0 10px}
+.news figcaption{font-size:12px;font-style:italic;margin-top:4px;opacity:.75}
+.news canvas{box-shadow:none !important;filter:contrast(1.1)}
+
+.paper{padding:22px 22px 26px;box-shadow:0 10px 40px rgba(0,0,0,.7);
+  background-image:repeating-linear-gradient(transparent 0 33px,rgba(70,100,150,.22) 33px 34px);background-position:0 18px}
+.paper.plain{background-image:radial-gradient(ellipse at 20% 0%,rgba(255,255,255,.4),transparent 60%)}
+.paper .ttl{font-family:'Special Elite',monospace;font-size:12px;letter-spacing:.2em;text-transform:uppercase;opacity:.6;margin-bottom:10px}
+.paper .hw p{margin:0 0 6px;line-height:34px}
+.paper.child .hw{font-size:28px;color:#24345e;transform:rotate(-1deg)}
+.smudge{display:inline-block;filter:blur(4.5px);font-weight:600;font-size:40px;color:#1f2b55}
+.d.draw .grid{display:grid;gap:14px}
+.d.draw .cap{margin-top:6px;text-align:center;font-style:italic;font-size:16px;color:var(--dim)}
+
+.register{font-family:'Special Elite',monospace}
+.register ol{list-style:none;margin-top:6px}
+.register li{display:flex;gap:14px;align-items:center;border-bottom:1px solid rgba(40,30,20,.22);padding:7px 0;font-size:16px}
+.register li .no{width:22px;opacity:.6}
+.register li .hw{font-size:28px}
+.register .scratch{position:relative;display:inline-block;width:150px;height:30px}
+.register .scratch canvas{position:absolute;inset:-6px -10px;width:calc(100% + 20px)!important;height:calc(100% + 12px)!important;box-shadow:none!important}
+.register .tear{font-size:12px;opacity:.5;font-style:italic;font-family:'Cormorant Garamond',serif}
+
+.diary .entry{margin-bottom:14px}
+.diary .date{font-family:'Special Elite',monospace;font-size:13px;letter-spacing:.12em;opacity:.65}
+.diary .hw{font-size:25px;line-height:1.25}
+.diary .stain{position:relative}
+.diary .stain::after{content:"";position:absolute;left:30%;top:-20px;width:150px;height:110px;border-radius:48% 52% 60% 40%;
+  background:radial-gradient(ellipse at 45% 50%,rgba(110,45,25,.55),rgba(110,45,25,.3) 45%,rgba(110,45,25,.08) 68%,transparent 72%);pointer-events:none}
+
+/* choice */
+#choice{position:fixed;inset:0;background:rgba(3,2,2,.8);display:none;align-items:center;justify-content:center;padding:16px;text-align:center}
+#choice.on{display:flex;animation:fin .35s ease}
+#choice .q{font-size:24px;font-style:italic;line-height:1.4;max-width:520px;margin-bottom:22px}
+#choice .opts{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+
+/* title */
+#title{position:fixed;inset:0;display:flex;align-items:flex-end;justify-content:center;text-align:center;z-index:5}
+#title canvas{position:absolute;inset:0;width:100%;height:100%}
+#title::after{content:"";position:absolute;inset:0;background:linear-gradient(to bottom,transparent 30%,rgba(0,0,0,.55) 58%,rgba(0,0,0,.85));pointer-events:none}
+#title .ti{position:relative;z-index:1;padding:16px 16px calc(46px + env(safe-area-inset-bottom));max-width:640px}
+#title h1{font-weight:400;font-size:clamp(54px,13vw,108px);letter-spacing:.22em;line-height:1;text-shadow:0 0 40px #000;margin-right:-.22em}
+#title .dev{display:block;font-family:'Noto Serif Devanagari',serif;font-size:clamp(20px,4vw,28px);letter-spacing:.1em;color:var(--ember);margin:10px 0 0;opacity:.85}
+#title .tag{margin:20px 0 28px;font-size:clamp(18px,3.6vw,23px);font-style:italic;color:var(--ink);opacity:.85;text-shadow:0 0 14px #000}
+#title .hint{margin-top:22px;font-size:13px;letter-spacing:.1em;color:var(--dim);line-height:1.6;text-shadow:0 0 10px #000}
+#title.off{opacity:0;transition:opacity 1.6s;pointer-events:none}
+
+/* ending */
+#ending{position:fixed;inset:0;display:none;z-index:6;background:#000}
+#ending.on{display:block}
+#ending canvas{position:absolute;inset:0;width:100%;height:100%}
+#ending .etext{position:absolute;left:50%;bottom:calc(110px + env(safe-area-inset-bottom));transform:translateX(-50%);
+  width:min(640px,calc(100% - 32px));text-align:center;font-size:clamp(20px,4vw,26px);font-style:italic;line-height:1.4;
+  text-shadow:0 0 18px #000,0 0 8px #000;transition:opacity .8s}
+#ending .etext .big{display:block;font-style:normal;font-size:clamp(40px,10vw,76px);letter-spacing:.22em;margin-bottom:6px}
+#ending .etext .small{display:block;font-style:normal;font-size:13px;letter-spacing:.38em;text-transform:uppercase;color:var(--ember);margin-bottom:12px}
+#ending .ebtns{position:absolute;left:50%;bottom:calc(36px + env(safe-area-inset-bottom));transform:translateX(-50%);
+  display:flex;flex-direction:column;gap:10px;width:min(520px,calc(100% - 32px))}
+#ending .ebtns .btn{text-transform:none;letter-spacing:.02em;font-size:18px;font-style:italic;padding:10px 18px}
+#ending.theory .etext{bottom:auto;top:50%;transform:translate(-50%,-100%)}
+
+#fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .6s;z-index:4}
+#fade.on{opacity:1}
+/* phone controller */
+#pad{display:none}
+body.touch.playing #pad{display:block}
+#zone{position:fixed;left:0;bottom:0;width:50%;height:58%;touch-action:none}
+#stick{position:fixed;pointer-events:none;left:calc(22px + env(safe-area-inset-left,0px));bottom:calc(26px + env(safe-area-inset-bottom,0px));
+  width:128px;height:128px;border-radius:50%;touch-action:none;
+  background:radial-gradient(circle,rgba(232,220,196,.03) 40%,rgba(232,220,196,.09));border:1px solid rgba(232,220,196,.2)}
+#stick::before{content:"";position:absolute;inset:22px;border-radius:50%;border:1px dashed rgba(232,220,196,.12)}
+#knob{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle at 40% 35%,#5c4632,#24180f);border:1px solid rgba(227,154,74,.5);box-shadow:0 0 16px rgba(227,154,74,.12)}
+#stick.active{border-color:rgba(227,154,74,.35)}
+#stick.active #knob{box-shadow:0 0 26px rgba(227,154,74,.45)}
+body.touch #act{display:none;left:auto;right:calc(26px + env(safe-area-inset-right,0px));bottom:calc(46px + env(safe-area-inset-bottom,0px));
+  transform:none;width:84px;height:84px;padding:0;border-radius:50%;opacity:.4;font-size:16px;letter-spacing:.12em;text-transform:uppercase;touch-action:none;transition:opacity .2s,box-shadow .2s}
+body.touch.playing #act{display:block}
+body.touch #act.ready{opacity:1;box-shadow:0 0 24px rgba(227,154,74,.35)}
+body.touch #act:active{transform:scale(.94)}
+body.touch #toast{bottom:calc(178px + env(safe-area-inset-bottom,0px))}
+/* first-person 3D */
+#crosshair{position:fixed;left:50%;top:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:rgba(232,220,196,.45);
+  pointer-events:none;display:none;transition:transform .15s,background .15s}
+body.playing #crosshair{display:block}
+#crosshair.on{background:var(--ember);transform:scale(1.6);box-shadow:0 0 10px rgba(227,154,74,.6)}
+#prompt{position:fixed;left:50%;top:calc(50% + 22px);transform:translateX(-50%);padding:4px 14px;border-radius:14px;
+  background:rgba(12,9,6,.72);border:1px solid rgba(227,154,74,.4);font-size:16px;font-weight:600;white-space:nowrap;pointer-events:none;display:none}
+#prompt.on{display:block}
+#lockhint{position:fixed;left:50%;bottom:calc(150px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font-size:14px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--dim);pointer-events:none;display:none;text-shadow:0 0 10px #000}
+#lockhint.on{display:block}
+#lookzone{display:none;position:fixed;right:0;top:0;width:50%;height:100%;touch-action:none}
+body.touch.playing #lookzone{display:block}
+body.iso #crosshair,body.iso #lockhint,body.iso #lookzone{display:none !important}
+body.iso #prompt{transform:translate(-50%,0)}
+#flash{position:fixed;inset:0;background:#ffecc8;opacity:0;pointer-events:none}
+@media (max-width:600px){ #toast{font-size:18px} #doc .note{font-size:17px} #obj{font-size:15px} }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hud"><div id="chap"></div><div id="obj"></div><div id="room"></div></div>
+<button id="mute" aria-label="Toggle sound">♪</button>
+<div id="lookzone"></div>
+<div id="pad"><div id="zone"></div><div id="stick" aria-label="Movement stick"><div id="knob"></div></div></div>
+<div id="crosshair"></div>
+<div id="prompt"></div>
+<div id="lockhint">Click to look around</div>
+<div id="flash"></div>
+<div id="toast"></div>
+<button id="act">Look</button>
+<div id="card"><div class="n"></div><div class="t"></div></div>
+<div id="doc"><div class="wrap"><div class="sheet"></div><div class="foot"><p class="note"></p><button class="btn next">Continue</button></div></div></div>
+<div id="choice"><div><p class="q"></p><div class="opts"></div></div></div>
+<div id="title">
+  <canvas id="tcv"></canvas>
+  <div class="ti">
+    <h1>KHYAA</h1>
+    <span class="dev">ख्याः · Diorama</span>
+    <p class="tag">Some things have lived with your family longer than you have.</p>
+    <button class="btn" id="start">Enter the house</button>
+    <p class="hint">Headphones recommended<br>Keyboard: WASD to walk · E to examine · or click to walk there<br>Phone: drag lower left to walk · tap to walk there · press Look to examine</p>
+  </div>
+</div>
+<div id="ending"><canvas id="ecv"></canvas><div class="etext"></div><div class="ebtns"></div></div>
+<div id="fade"></div>
+<script>window.KHYAA_VIEW = 'iso';</script>
+<script src="core.js"></script>
+<script src="game3d.js"></script>
+</body>
+</html>
